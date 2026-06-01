@@ -1,52 +1,425 @@
-// --- DATABASE: 100 TOPICS (Pastikan array topics sudah ada di atasnya) ---
-
-function generateTopic() {
-    const topicTxt = document.getElementById('topic-text');
-    const badge = document.getElementById('category-badge');
-    const container = document.getElementById('display-container');
-
-    // 1. Play Sound & Start Visual Feedback
-    clickSound.currentTime = 0;
-    clickSound.play();
-    
-    // Beri efek glow pada container saat mengacak
-    container.style.transition = "all 0.1s ease";
-    container.style.boxShadow = "0 0 40px rgba(34, 211, 238, 0.6)";
-    container.style.transform = "scale(0.97)";
-
-    // 2. SHUFFLE ANIMATION (Tulisan berganti-ganti secara acak)
-    let iterations = 0;
-    const maxIterations = 15; // Jumlah lompatan tulisan sebelum berhenti
-    
-    const shuffleInterval = setInterval(() => {
-        // Ambil topik random sementara untuk efek visual
-        const tempTopic = topics[Math.floor(Math.random() * topics.length)];
-        topicTxt.innerText = tempTopic.text;
-        topicTxt.style.opacity = Math.random() > 0.5 ? "0.7" : "1"; // Efek flicker/berkedip
-        
-        iterations++;
-
-        if (iterations >= maxIterations) {
-            clearInterval(shuffleInterval);
-            
-            // 3. FINAL TOPIC SELECTION
-            const finalTopic = topics[Math.floor(Math.random() * topics.length)];
-            
-            // Update konten final
-            topicTxt.innerText = finalTopic.text;
-            badge.innerText = finalTopic.cat;
-            
-            // Reset gaya visual ke kondisi normal/highlight
-            topicTxt.style.opacity = "1";
-            container.style.boxShadow = "none";
-            container.style.transform = "scale(1)";
-            
-            // Tambahkan ke riwayat
-            addToHistory(finalTopic);
-            
-            // Opsional: Bunyi klik sekali lagi saat berhenti (lebih mantap)
-            startSound.currentTime = 0;
-            startSound.play();
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIBANTAI - Diskusi Bareng dan Santai</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --secondary: #a855f7;
+            --accent: #22d3ee;
+            --bg-dark: #0f172a;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
         }
-    }, 60); // Kecepatan pergantian (60ms)
-}
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: radial-gradient(circle at top left, #1e1b4b, #0f172a);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            z-index: 1;
+        }
+
+        .glass-card {
+            background: var(--glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        header h1 {
+            font-size: 2.8rem;
+            font-weight: 800;
+            background: linear-gradient(to right, var(--accent), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            margin-bottom: 30px;
+            letter-spacing: 1px;
+        }
+
+        .topic-display {
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 30px;
+            border-radius: 20px;
+            transition: all 0.2s ease;
+        }
+
+        .category-badge {
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            background: rgba(99, 102, 241, 0.2);
+            color: var(--accent);
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            margin-bottom: 20px;
+        }
+
+        #topic-text {
+            font-size: 1.6rem;
+            line-height: 1.4;
+            font-weight: 600;
+            transition: opacity 0.1s ease;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            padding: 14px 24px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 15px 20px -3px rgba(99, 102, 241, 0.5); }
+
+        .btn-secondary { background: var(--glass-border); color: white; }
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.2); }
+
+        /* Timer Section */
+        .timer-section {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .timer-display {
+            font-family: 'Monaco', monospace;
+            font-size: 3.5rem;
+            color: var(--accent);
+            margin: 10px 0;
+            text-shadow: 0 0 15px rgba(34, 211, 238, 0.3);
+        }
+
+        .preset-btn {
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            padding: 5px 12px;
+            font-size: 0.8rem;
+            margin: 0 4px;
+        }
+
+        .preset-btn.active { border-color: var(--accent); color: var(--accent); }
+
+        /* History */
+        .history-section { margin-top: 40px; text-align: left; }
+        .history-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
+        .history-meta { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 5px; }
+        .history-topic { font-size: 0.9rem; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <main class="glass-card">
+            <header>
+                <h1>DIBANTAI</h1>
+                <p>Diskusi Bareng dan Santai</p>
+            </header>
+
+            <div class="topic-display" id="display-container">
+                <span class="category-badge" id="category-badge">Ready?</span>
+                <p id="topic-text">Tekan tombol untuk mengacak topik.</p>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-primary" onclick="generateTopic()">ACAK TOPIK</button>
+                <button class="btn-secondary" onclick="copyTopic()"><span id="copy-text">Salin</span></button>
+            </div>
+
+            <div class="timer-section">
+                <div id="presets">
+                    <button class="preset-btn" onclick="setTimer(60)">1m</button>
+                    <button class="preset-btn active" onclick="setTimer(120)">2m</button>
+                    <button class="preset-btn" onclick="setTimer(180)">3m</button>
+                    <button class="preset-btn" onclick="setTimer(300)">5m</button>
+                </div>
+                <div class="timer-display" id="timer-val">02:00</div>
+                <div class="btn-group">
+                    <button class="btn-secondary" id="timer-toggle" onclick="toggleTimer()">Mulai</button>
+                    <button class="btn-secondary" onclick="resetTimer()">Reset</button>
+                </div>
+            </div>
+
+            <div class="history-section">
+                <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--text-muted);">Riwayat Diskusi</h3>
+                <div id="history-list"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const topics = [
+            // POLITICS (40)
+            { cat: "Politics", text: "Efektivitas oposisi di parlemen dalam sistem presidensial dengan koalisi gemuk." },
+            { cat: "Politics", text: "Digital Activism: Apakah 'clactivism' melemahkan substansi gerakan mahasiswa?" },
+            { cat: "Politics", text: "Urgensi Presidential Threshold 20% dalam memperkuat sistem ketatanegaraan." },
+            { cat: "Politics", text: "Netralitas ASN dan aparat dalam kontestasi Pilkada serentak." },
+            { cat: "Politics", text: "Politik Dinasti: Antara hak asasi warga negara vs etika demokrasi." },
+            { cat: "Politics", text: "Proporsional Terbuka vs Tertutup: Mana yang lebih berpihak pada kaderisasi partai?" },
+            { cat: "Politics", text: "Peran pemuda dalam memitigasi polarisasi politik menjelang 2029." },
+            { cat: "Politics", text: "Dominasi eksekutif atas legislatif: Tantangan fungsi pengawasan DPR RI." },
+            { cat: "Politics", text: "Diplomasi Indonesia dalam konflik Laut China Selatan: Pragmatisme atau Idealisme?" },
+            { cat: "Politics", text: "RUU Perampasan Aset: Mengapa sulit ditembus oleh pembuat kebijakan?" },
+            { cat: "Politics", text: "Sistem meritokrasi dalam birokrasi Indonesia: Mitos atau realitas?" },
+            { cat: "Politics", text: "Transformasi Partai Politik menjadi organisasi modern berbasis data." },
+            { cat: "Politics", text: "Eksistensi Dewan Perwakilan Daerah (DPD) dalam sistem bikameral Indonesia." },
+            { cat: "Politics", text: "Politik Identitas: Strategi pemenangan atau ancaman disintegrasi?" },
+            { cat: "Politics", text: "Partisipasi politik Gen Z: Lebih dari sekadar pemilih pemula." },
+            { cat: "Politics", text: "Kemandirian finansial Partai Politik untuk mengurangi ketergantungan pada oligarki." },
+            { cat: "Politics", text: "Etika komunikasi politik pejabat publik di era media sosial." },
+            { cat: "Politics", text: "Reformasi hukum pasca putusan MK yang kontroversial." },
+            { cat: "Politics", text: "Pengaruh lobi internasional terhadap kedaulatan kebijakan domestik." },
+            { cat: "Politics", text: "Desentralisasi vs Sentralisasi: Evaluasi UU Otonomi Daerah." },
+            { cat: "Politics", text: "Integritas KPU/Bawaslu dalam menjaga kualitas demokrasi prosedural." },
+            { cat: "Politics", text: "Gerakan mahasiswa: Mengapa isu lokal seringkali kalah populer dari isu nasional?" },
+            { cat: "Politics", text: "Politik luar negeri Indonesia di tengah rivalitas AS dan China." },
+            { cat: "Politics", text: "Urgency pembatasan masa jabatan anggota legislatif." },
+            { cat: "Politics", text: "Kualitas debat publik calon pemimpin: Edukasi atau sekadar gimmick?" },
+            { cat: "Politics", text: "Ancaman Populisme terhadap stabilitas demokrasi jangka panjang." },
+            { cat: "Politics", text: "Hak angket: Senjata politik atau instrumen penegakan kebenaran?" },
+            { cat: "Politics", text: "Kepemimpinan teknokratis vs kepemimpinan populis di tingkat daerah." },
+            { cat: "Politics", text: "Urgensi amandemen UUD 1945 terkait GBHN/PPHN." },
+            { cat: "Politics", text: "Cyber War: Ketahanan nasional menghadapi serangan siber asing." },
+            { cat: "Politics", text: "Politik anggaran: Memastikan APBN tepat sasaran bagi masyarakat rentan." },
+            { cat: "Politics", text: "Restorative Justice: Terobosan hukum atau celah impunitas?" },
+            { cat: "Politics", text: "Peran aktor non-negara dalam mempengaruhi kebijakan publik." },
+            { cat: "Politics", text: "Fenomena 'Lurah' dalam politik praktis tingkat nasional." },
+            { cat: "Politics", text: "Keadilan bagi tahanan politik dan kebebasan berpendapat." },
+            { cat: "Politics", text: "Digital Government: Kesiapan infrastruktur vs literasi pengguna." },
+            { cat: "Politics", text: "Pemisahan hari Pemilu Nasional dan Daerah: Solusi kelelahan petugas?" },
+            { cat: "Politics", text: "Pengawasan dana kampanye: Mengendus aliran 'dark money'." },
+            { cat: "Politics", text: "Sinergi TNI/Polri dalam stabilitas keamanan nasional tanpa dwifungsi." },
+            { cat: "Politics", text: "Visi Indonesia Emas 2045: Roadmap ambisius atau angan-angan?" },
+
+            // ECONOMY (30)
+            { cat: "Economy", text: "Hilirisasi Nikel: Kedaulatan ekonomi vs gugatan WTO." },
+            { cat: "Economy", text: "Dampak kenaikan PPN 12% terhadap daya beli masyarakat kelas menengah." },
+            { cat: "Economy", text: "Middle Income Trap: Akankah Indonesia terjebak selamanya?" },
+            { cat: "Economy", text: "Efektivitas BLT dalam menanggulangi kemiskinan struktural." },
+            { cat: "Economy", text: "Ekonomi Gig: Perlindungan hukum bagi mitra driver dan freelancer." },
+            { cat: "Economy", text: "Kedaulatan pangan: Mengapa impor masih menjadi pilihan utama?" },
+            { cat: "Economy", text: "Transisi Energi Hijau: Kesiapan ekonomi menghadapi pensiun dini PLTU." },
+            { cat: "Economy", text: "UMKM Digital: Tantangan bersaing dengan produk impor di marketplace." },
+            { cat: "Economy", text: "Rasio utang pemerintah terhadap PDB: Aman atau mengkhawatirkan?" },
+            { cat: "Economy", text: "Pajak Karbon: Keseimbangan antara profit dan kelestarian lingkungan." },
+            { cat: "Economy", text: "Digital Currency (CBDC): Masa depan rupiah di tangan blockchain." },
+            { cat: "Economy", text: "Kesenjangan ekonomi antar wilayah: Jawa-sentris vs Indonesia-sentris." },
+            { cat: "Economy", text: "Ibukota Nusantara (IKN): Investasi masa depan atau beban fiskal?" },
+            { cat: "Economy", text: "Subsidi energi tepat sasaran: Tantangan verifikasi data lapangan." },
+            { cat: "Economy", text: "Kesiapan SDM Indonesia menghadapi otomasi dan AI di sektor industri." },
+            { cat: "Economy", text: "Startup Winter: Evaluasi model bisnis 'bakar uang' di Indonesia." },
+            { cat: "Economy", text: "Monopoli pasar digital oleh perusahaan Big Tech global." },
+            { cat: "Economy", text: "Tantangan kedaulatan air dan energi dalam menghadapi perubahan iklim." },
+            { cat: "Economy", text: "Efektivitas diplomasi ekonomi Indonesia di forum G20/ASEAN." },
+            { cat: "Economy", text: "Literasi keuangan vs fenomena Pinjol ilegal di masyarakat." },
+            { cat: "Economy", text: "Industrialisasi vs deindustrialisasi dini di sektor manufaktur." },
+            { cat: "Economy", text: "Pentingnya reformasi perpajakan untuk memperluas tax base." },
+            { cat: "Economy", text: "Peran BUMN: Agent of development atau sekadar cari profit?" },
+            { cat: "Economy", text: "Kedaulatan data ekonomi sebagai aset nasional masa depan." },
+            { cat: "Economy", text: "Skema pensiun dan perlindungan hari tua bagi pekerja muda." },
+            { cat: "Economy", text: "Dampak fluktuasi nilai tukar rupiah terhadap biaya logistik." },
+            { cat: "Economy", text: "Ekonomi Kreatif: Potensi ekspor kekayaan intelektual (IP) lokal." },
+            { cat: "Economy", text: "Urbanisasi: Beban kota besar atau mesin pertumbuhan ekonomi?" },
+            { cat: "Economy", text: "Investasi asing (FDI): Cara memastikan transfer teknologi terjadi." },
+            { cat: "Economy", text: "Keadilan akses perbankan bagi penduduk di daerah 3T." },
+
+            // SOCIAL (30)
+            { cat: "Social", text: "Cancel Culture: Instrumen kontrol sosial atau penghakiman massa?" },
+            { cat: "Social", text: "Komodifikasi kesehatan mental di media sosial." },
+            { cat: "Social", text: "Standar ganda penegakan hukum pada kasus ITE." },
+            { cat: "Social", text: "Pendidikan Tinggi: Investasi masa depan atau sekadar pabrik ijazah?" },
+            { cat: "Social", text: "Krisis identitas budaya di tengah masifnya arus K-Pop dan Westernisasi." },
+            { cat: "Social", text: "Gentrifikasi: Hilangnya ruang hidup masyarakat asli di perkotaem." },
+            { cat: "Social", text: "Sistem zonasi sekolah: Pemerataan kualitas atau hambatan prestasi?" },
+            { cat: "Social", text: "Kekerasan seksual di institusi pendidikan: Memutus rantai impunitas." },
+            { cat: "Social", text: "Kesenjangan literasi digital antar generasi (Boomers vs Alpha)." },
+            { cat: "Social", text: "Polarisasi agama di ruang digital: Peran influencer dan pemuka agama." },
+            { cat: "Social", text: "Keberlanjutan bahasa daerah di tengah dominasi bahasa gaul." },
+            { cat: "Social", text: "Etika penggunaan AI dalam karya tulis ilmiah dan seni." },
+            { cat: "Social", text: "Ancaman kesepian (loneliness) di tengah masyarakat yang hiper-koneksi." },
+            { cat: "Social", text: "Keadilan bagi penyandang disabilitas di ruang publik dan dunia kerja." },
+            { cat: "Social", text: "Budaya konsumerisme: Dampak Paylater terhadap gaya hidup anak muda." },
+            { cat: "Social", text: "Perubahan peran gender dalam institusi keluarga modern." },
+            { cat: "Social", text: "Kriminalitas remaja (klitih/tawuran): Isu hukum atau kegagalan sosial?" },
+            { cat: "Social", text: "Masa depan jurnalisme di era banjir disinformasi dan hoax." },
+            { cat: "Social", text: "Komersialisasi agama dalam konten media sosial." },
+            { cat: "Social", text: "Hak atas privasi vs keamanan nasional dalam pemantauan digital." },
+            { cat: "Social", text: "Tantangan integrasi pengungsi internasional di komunitas lokal." },
+            { cat: "Social", text: "Dampak algoritma media sosial terhadap pembentukan echo chamber." },
+            { cat: "Social", text: "Kualitas udara di kota besar: Hak atas napas sehat yang terabaikan." },
+            { cat: "Social", text: "Pentingnya pendidikan seks sejak dini untuk pencegahan kekerasan." },
+            { cat: "Social", text: "Perlindungan terhadap masyarakat adat dan hutan ulayat." },
+            { cat: "Social", text: "Fenomena 'Sandwich Generation': Strategi memutus rantai beban ekonomi." },
+            { cat: "Social", text: "Kecanduan judi online: Penyakit sosial atau kegagalan regulasi?" },
+            { cat: "Social", text: "Efektivitas kurikulum merdeka dalam mencetak karakter kritis." },
+            { cat: "Social", text: "Mitos 'Work-Life Balance' di tengah tuntutan ekonomi tinggi." },
+            { cat: "Social", text: "Nasionalisme di era globalisasi: Masih relevankah?" }
+        ];
+
+        let timerSeconds = 120;
+        let timerInterval = null;
+        let history = JSON.parse(localStorage.getItem('dibantai_history')) || [];
+        
+        const alarmSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        const clickSound = new Audio('https://www.soundjay.com/buttons/sounds/button-16.mp3');
+        const startSound = new Audio('https://www.soundjay.com/buttons/sounds/button-09.mp3');
+
+        function generateTopic() {
+            const topicTxt = document.getElementById('topic-text');
+            const badge = document.getElementById('category-badge');
+            const container = document.getElementById('display-container');
+
+            clickSound.currentTime = 0;
+            clickSound.play();
+            
+            container.style.boxShadow = "0 0 40px rgba(34, 211, 238, 0.4)";
+            container.style.transform = "scale(0.98)";
+
+            let iterations = 0;
+            const shuffle = setInterval(() => {
+                topicTxt.innerText = topics[Math.floor(Math.random() * topics.length)].text;
+                topicTxt.style.opacity = iterations % 2 === 0 ? "0.5" : "1";
+                iterations++;
+
+                if (iterations > 12) {
+                    clearInterval(shuffle);
+                    const final = topics[Math.floor(Math.random() * topics.length)];
+                    topicTxt.innerText = final.text;
+                    badge.innerText = final.cat;
+                    topicTxt.style.opacity = "1";
+                    container.style.boxShadow = "none";
+                    container.style.transform = "scale(1)";
+                    startSound.play();
+                    addToHistory(final);
+                }
+            }, 70);
+        }
+
+        function toggleTimer() {
+            const btn = document.getElementById('timer-toggle');
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                btn.innerText = "Lanjut";
+            } else {
+                startSound.play();
+                btn.innerText = "Pause";
+                timerInterval = setInterval(() => {
+                    if (timerSeconds > 0) {
+                        timerSeconds--;
+                        updateTimerDisplay();
+                    } else {
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                        alarmSound.play();
+                        alert("Waktu Habis!");
+                    }
+                }, 1000);
+            }
+        }
+
+        function setTimer(sec) {
+            resetTimer();
+            timerSeconds = sec;
+            updateTimerDisplay();
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(timerSeconds/60).toString().padStart(2,'0');
+            const s = (timerSeconds%60).toString().padStart(2,'0');
+            document.getElementById('timer-val').innerText = `${m}:${s}`;
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            document.getElementById('timer-toggle').innerText = "Mulai";
+            updateTimerDisplay();
+        }
+
+        function addToHistory(t) {
+            const time = new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+            history.unshift({...t, time});
+            if(history.length > 5) history.pop();
+            localStorage.setItem('dibantai_history', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            document.getElementById('history-list').innerHTML = history.map(h => `
+                <div class="history-item">
+                    <div class="history-meta">${h.cat} • ${h.time}</div>
+                    <div class="history-topic">${h.text}</div>
+                </div>
+            `).join('');
+        }
+
+        function copyTopic() {
+            navigator.clipboard.writeText(document.getElementById('topic-text').innerText);
+            document.getElementById('copy-text').innerText = "Copied!";
+            setTimeout(() => document.getElementById('copy-text').innerText = "Salin", 1500);
+        }
+
+        window.onload = renderHistory;
+    </script>
+</body>
+</html>
