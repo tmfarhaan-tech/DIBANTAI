@@ -320,6 +320,7 @@
         const alarmSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
         const clickSound = new Audio('https://www.soundjay.com/buttons/sounds/button-16.mp3');
         const startSound = new Audio('https://www.soundjay.com/buttons/sounds/button-09.mp3');
+        const shuffleTick = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3');
 
         function generateTopic() {
             const topicTxt = document.getElementById('topic-text');
@@ -336,6 +337,11 @@
             const shuffle = setInterval(() => {
                 topicTxt.innerText = topics[Math.floor(Math.random() * topics.length)].text;
                 topicTxt.style.opacity = iterations % 2 === 0 ? "0.5" : "1";
+                
+                shuffleTick.currentTime = 0;
+                shuffleTick.volume = 0.4;
+                shuffleTick.play();
+
                 iterations++;
 
                 if (iterations > 12) {
@@ -346,10 +352,13 @@
                     topicTxt.style.opacity = "1";
                     container.style.boxShadow = "none";
                     container.style.transform = "scale(1)";
+                    
+                    startSound.currentTime = 0;
                     startSound.play();
+                    
                     addToHistory(final);
                 }
-            }, 70);
+            }, 80);
         }
 
         function toggleTimer() {
@@ -359,6 +368,7 @@
                 timerInterval = null;
                 btn.innerText = "Lanjut";
             } else {
+                startSound.currentTime = 0;
                 startSound.play();
                 btn.innerText = "Pause";
                 timerInterval = setInterval(() => {
@@ -368,6 +378,7 @@
                     } else {
                         clearInterval(timerInterval);
                         timerInterval = null;
+                        btn.innerText = "Mulai";
                         alarmSound.play();
                         alert("Waktu Habis!");
                     }
